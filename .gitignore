@@ -1,0 +1,23 @@
+# Rust artifacts
+/collector/target/
+/rules/target/
+Cargo.lock
+
+# Go binaries and build caches
+/core/edr-core
+/core/edr-core.exe
+/core/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local configuration & logs
+config/local.*
+*.log
