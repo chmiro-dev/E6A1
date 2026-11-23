@@ -1,0 +1,32 @@
+# Default Agent Configuration Template
+# Copy to config/local.yaml for environment-specific overrides (ignored by Git via config/local.*)
+
+agent:
+  service_name: "edr-security-agent"
+  log_level: "info"
+  health_check_interval_sec: 3
+
+ipc:
+  # Windows Named Pipe or Unix Domain Socket endpoint
+  windows_pipe_path: "\\\\.\\pipe\\edr-agent-telemetry"
+  unix_socket_path: "/var/run/edr-agent/telemetry.sock"
+  max_frame_bytes: 1048576
+
+collector:
+  mode: "passive_observation"
+  ring_buffer_capacity: 65536
+  etw_providers:
+    process: true
+    file: true
+    registry: true
+
+storage:
+  driver: "sqlite" # Supported: sqlite, badger
+  local_queue_path: "./data/telemetry_queue.db"
+  max_queue_size_mb: 512
+
+wasm_engine:
+  rules_directory: "./rules/dist"
+  hot_reload_enabled: true
+  max_memory_pages: 256 # 16 MB linear memory sandbox cap per module
+  execution_timeout_ms: 50

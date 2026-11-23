@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package edr.telemetry.v1;
+
+option go_package = "edr-core/shared/telemetry/v1;telemetryv1";
+
+// Standardized envelope transmitted over Named Pipes / Unix Domain Sockets
+// between the Rust ETW Collector and the Go Agent Core.
+message TelemetryRecord {
+  string event_id = 1;
+  uint64 timestamp_unix_ns = 2;
+  string host_id = 3;
+  string provider_source = 4;
+
+  oneof payload {
+    ProcessEvent process_event = 10;
+    FileEvent file_event = 11;
+    RegistryEvent registry_event = 12;
+  }
+}
+
+message ProcessEvent {
+  enum Action {
+    ACTION_UNSPECIFIED = 0;
+    ACTION_CREATED = 1;
+    ACTION_TERMINATED = 2;
+  }
+  Action action = 1;
+  uint32 pid = 2;
+  uint32 ppid = 3;
+  string image_path = 4;
+  string command_line = 5;
+  string user_sid = 6;
+  string sha256_hash = 7;
+}
+
+message FileEvent {
+  enum Action {
+    ACTION_UNSPECIFIED = 0;
+    ACTION_CREATED = 1;
+    ACTION_MODIFIED = 2;
+    ACTION_DELETED = 3;
+    ACTION_RENAMED = 4;
+  }
+  Action action = 1;
+  uint32 pid = 2;
+  string file_path = 3;
+  string previous_path = 4;
+  uint64 file_size_bytes = 5;
+}
+
+message RegistryEvent {
+  enum Action {
+    ACTION_UNSPECIFIED = 0;
+    ACTION_KEY_CREATED = 1;
+    ACTION_VALUE_SET = 2;
+    ACTION_KEY_DELETED = 3;
+    ACTION_VALUE_DELETED = 4;
+  }
+  Action action = 1;
+  uint32 pid = 2;
+  string key_path = 3;
+  string value_name = 4;
+  string value_data_preview = 5;
+}

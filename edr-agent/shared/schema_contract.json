@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://edr-agent.local/schemas/telemetry-record.json",
+  "title": "TelemetryRecord",
+  "description": "Shared IPC and Wasm Sandbox telemetry event contract (aligned with ARCHITECTURE.md)",
+  "type": "object",
+  "required": ["event_id", "timestamp_unix_ns", "event_type", "payload"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "timestamp_unix_ns": { "type": "integer", "minimum": 0 },
+    "host_id": { "type": "string" },
+    "event_type": { "type": "string", "enum": ["ProcessEvent", "FileEvent", "RegistryEvent"] },
+    "payload": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["action", "pid", "ppid", "image_path"],
+          "properties": {
+            "action": { "type": "string", "enum": ["CREATED", "TERMINATED"] },
+            "pid": { "type": "integer" },
+            "ppid": { "type": "integer" },
+            "image_path": { "type": "string" },
+            "command_line": { "type": "string" },
+            "user_sid": { "type": "string" },
+            "sha256_hash": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["action", "pid", "file_path"],
+          "properties": {
+            "action": { "type": "string", "enum": ["CREATED", "MODIFIED", "DELETED", "RENAMED"] },
+            "pid": { "type": "integer" },
+            "file_path": { "type": "string" },
+            "previous_path": { "type": "string" },
+            "file_size_bytes": { "type": "integer" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["action", "pid", "key_path"],
+          "properties": {
+            "action": { "type": "string", "enum": ["KEY_CREATED", "VALUE_SET", "KEY_DELETED", "VALUE_DELETED"] },
+            "pid": { "type": "integer" },
+            "key_path": { "type": "string" },
+            "value_name": { "type": "string" },
+            "value_data_preview": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

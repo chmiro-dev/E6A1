@@ -1,0 +1,17 @@
+# Default Behavioral Detection Policy Template
+policy_version: "1.0.0"
+enforcement_mode: "audit_only" # Collector is strictly passive; alerts emitted by Go Core
+
+enabled_rule_modules:
+  - name: "suspicious_parent_child_process"
+    wasm_file: "proc_lineage.wasm"
+    severity: "high"
+    enabled: true
+  - name: "persistence_registry_run_keys"
+    wasm_file: "reg_persistence.wasm"
+    severity: "medium"
+    enabled: true
+  - name: "system_binary_tampering"
+    wasm_file: "file_integrity.wasm"
+    severity: "critical"
+    enabled: true
