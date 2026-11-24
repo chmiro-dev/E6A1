@@ -1,13 +1,17 @@
 # Unified Build Automation for EDR Security Agent & Telemetry Platform
-# Aligns with ARCHITECTURE.md directory structure
-
-SHELL := /bin/sh
+# Uses Python helpers where shell builtins/utilities differ across Windows
+# (cmd.exe / PowerShell) and macOS/Linux (POSIX sh).
 
 CORE_DIR := core
 COLLECTOR_DIR := collector
 RULES_DIR := rules
 BIN_DIR := $(CORE_DIR)/bin
 RULES_DIST := $(RULES_DIR)/dist
+
+PYTHON ?= python
+SUITE ?= all
+VERIFY_LOG ?= logs/phase1_verify.log
+VERIFY_SCRIPT := ../verify_phase1.py
 
 # Detect OS for binary extension
 ifeq ($(OS),Windows_NT)
@@ -16,7 +20,7 @@ else
 	EXT :=
 endif
 
-.PHONY: all build build-core build-collector build-rules test clean check-isolation
+.PHONY: all build build-core build-collector build-rules test clean check-isolation verify-phase1
 
 all: build
 
@@ -26,44 +30,37 @@ build: build-core build-collector build-rules
 ## 1. Build Go Agent Core Orchestrator
 build-core:
 	@echo "[*] Building Go Agent Core..."
-	@mkdir -p $(BIN_DIR)
-	cd $(CORE_DIR) && go build -o bin/edr-core$(EXT) main.go
+	@$(PYTHON) -c "import os, subprocess, sys; os.makedirs('$(BIN_DIR)', exist_ok=True); sys.exit(subprocess.call(['go', 'build', '-o', 'bin/edr-core$(EXT)', 'main.go'], cwd='$(CORE_DIR)'))"
 
 ## 2. Build Rust ETW Telemetry Collector
 build-collector:
 	@echo "[*] Building Rust ETW Telemetry Collector..."
-	cd $(COLLECTOR_DIR) && cargo build --release
+	@$(PYTHON) -c "import subprocess, sys; sys.exit(subprocess.call(['cargo', 'build', '--release'], cwd='$(COLLECTOR_DIR)'))"
 
 ## 3. Compile Rust Detection Heuristics to WebAssembly (.wasm)
 ## Note: Requires 'rules/Cargo.toml' (WBS Step 5.2.1)
 build-rules:
 	@echo "[*] Building Wasm Detection Rules..."
-	@if [ -f "$(RULES_DIR)/Cargo.toml" ]; then \
-		mkdir -p $(RULES_DIST); \
-		cd $(RULES_DIR) && cargo build --target wasm32-unknown-unknown --release; \
-	else \
-		echo "[!] Skipping Wasm rules build: $(RULES_DIR)/Cargo.toml not yet created (WBS 5.2.1)."; \
-	fi
+	@$(PYTHON) -c "import os, subprocess, sys; cargo_toml = os.path.join('$(RULES_DIR)', 'Cargo.toml'); (print('[!] Skipping Wasm rules build: $(RULES_DIR)/Cargo.toml not yet created (WBS 5.2.1).') or sys.exit(0)) if not os.path.isfile(cargo_toml) else (os.makedirs('$(RULES_DIST)', exist_ok=True), sys.exit(subprocess.call(['cargo', 'build', '--target', 'wasm32-unknown-unknown', '--release'], cwd='$(RULES_DIR)')))"
 
 ## Run unit tests across Go and Rust workspaces
 test:
 	@echo "[*] Running Go Core tests..."
-	cd $(CORE_DIR) && go test ./...
+	@$(PYTHON) -c "import subprocess, sys; sys.exit(subprocess.call(['go', 'test', './...'], cwd='$(CORE_DIR)'))"
 	@echo "[*] Running Rust Collector tests..."
-	cd $(COLLECTOR_DIR) && cargo test
+	@$(PYTHON) -c "import subprocess, sys; sys.exit(subprocess.call(['cargo', 'test'], cwd='$(COLLECTOR_DIR)'))"
 
 ## Audit architectural boundary rules (forbids direct networking imports in collector/)
 check-isolation:
 	@echo "[*] Auditing collector/ for forbidden networking crates..."
-	@if grep -E "reqwest|hyper|tokio::net|std::net" $(COLLECTOR_DIR)/Cargo.toml $(COLLECTOR_DIR)/src/*.rs 2>/dev/null; then \
-		echo "[ERROR] Architecture violation: network library detected in collector/!"; \
-		exit 1; \
-	else \
-		echo "[OK] Collector sensor isolation verified."; \
-	fi
+	@$(PYTHON) -c "import glob, os, re, sys; pat = re.compile(r'\\b(reqwest|hyper)\\b|tokio::net|std::net'); targets = [os.path.join('$(COLLECTOR_DIR)', 'Cargo.toml')] + glob.glob(os.path.join('$(COLLECTOR_DIR)', 'src', '*.rs')); hits = [(p, i+1, line.strip()) for p in targets if os.path.isfile(p) for i, line in enumerate(open(p, encoding='utf-8', errors='replace')) if pat.search(line)]; (print('\\n'.join(f'{p}:{ln}: {txt}' for p, ln, txt in hits)), print('[ERROR] Architecture violation: network library detected in collector/!'), sys.exit(1)) if hits else print('[OK] Collector sensor isolation verified.')"
+
+## Run modular Phase 1 verification suite and write session log
+verify-phase1:
+	@echo "[*] Running Phase 1 verification (suite=$(SUITE))..."
+	$(PYTHON) $(VERIFY_SCRIPT) --root .. --suite $(SUITE) --verbose --log-file $(VERIFY_LOG)
 
 ## Clean build artifacts
 clean:
 	@echo "[*] Cleaning build artifacts..."
-	rm -rf $(BIN_DIR) $(RULES_DIST)
-	cd $(COLLECTOR_DIR) && cargo clean
+	@$(PYTHON) -c "import shutil, subprocess, sys; [shutil.rmtree(d, ignore_errors=True) for d in ('$(BIN_DIR)', '$(RULES_DIST)')]; sys.exit(subprocess.call(['cargo', 'clean'], cwd='$(COLLECTOR_DIR)'))"
